@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 int rows, cols;
 
 #define MAX_FILES 1024
@@ -56,15 +56,15 @@ void go_back() {
   load_dir(cwd);
 }
 void open_file(const char *filename, const char *cwd) {
-    char fullpath[1024];
-    snprintf(fullpath, sizeof(fullpath), "%s/%s", cwd, filename);
+  char fullpath[1024];
+  snprintf(fullpath, sizeof(fullpath), "%s/%s", cwd, filename);
 
-    pid_t pid = fork();
-    if (pid == 0) {
-        
-        execlp("xdg-open", "xdg-open", fullpath, (char *)NULL);
-        exit(1);  
-    }
+  pid_t pid = fork();
+  if (pid == 0) {
+
+    execlp("xdg-open", "xdg-open", fullpath, (char *)NULL);
+    exit(1);
+  }
 }
 
 int main() {
@@ -82,24 +82,21 @@ int main() {
     clear();
     getmaxyx(stdscr, rows, cols);
 
+    // Print header centered
     char header[1024];
     snprintf(header, sizeof(header),
              "Dir: %s  (enter=open  left arrow key=back  q=quit)", cwd);
-
     mvprintw(1, (cols - strlen(header)) / 2, "%s", header);
 
-    for (int i = 0; i < file_count; i++) {
-      if (i == selected)
-        attron(A_REVERSE);
+    // Print files centered
+    int start_y = (rows - file_count) / 2;
+    if (start_y < 3)
+      start_y = 3;
 
+    for (int i = 0; i < file_count; i++) {
       char line[512];
       snprintf(line, sizeof(line), "%s%s", files[i],
                is_dir(files[i]) ? "/" : "");
-
-      int start_y = (rows - file_count) / 2;
-      if (start_y < 3)
-        start_y = 3;
-
       int x = (cols - strlen(line)) / 2;
       int y = start_y + i;
 
@@ -110,70 +107,41 @@ int main() {
 
       if (i == selected)
         attroff(A_REVERSE);
-
-      if (i == selected)
-        attroff(A_REVERSE);
-
-      else if (ch == KEY_LEFT) {
-        go_back();
-      }
     }
 
+    // Get user input
     ch = getch();
 
-if (ch == 'q') {
-    break;
-}
-else if (ch == KEY_UP && selected > 0) {
-    selected--;
-}
-else if (ch == KEY_DOWN && selected < file_count - 1) {
-    selected++;
-}
-else if (ch == KEY_LEFT) {
-    // go back
-    if (strcmp(cwd, "/") != 0) {
-        char *p = strrchr(cwd, '/');
-        if (p && p != cwd)
-            *p = '\0';
-        else
-            strcpy(cwd, "/");
-
-        load_dir(cwd);
-    }
-}
-else if (ch == '\n' && file_count > 0) {
-    if (is_dir(files[selected])) {
-
+    // Handle keys
+    if (ch == 'q') {
+      break;
+    } else if (ch == KEY_UP && selected > 0) {
+      selected--;
+    } else if (ch == KEY_DOWN && selected < file_count - 1) {
+      selected++;
+    } else if (ch == KEY_LEFT) {
+      go_back();
+    } else if (ch == '\n' && file_count > 0) {
+      if (is_dir(files[selected])) {
         char newpath[1024];
-
         if (strcmp(files[selected], "..") == 0) {
-            if (strcmp(cwd, "/") != 0) {
-                char *p = strrchr(cwd, '/');
-                if (p && p != cwd)
-                    *p = '\0';
-                else
-                    strcpy(cwd, "/");
-            }
+          go_back();
+        } else if (strcmp(files[selected], ".") != 0) {
+          if (strcmp(cwd, "/") == 0)
+            snprintf(newpath, sizeof(newpath), "/%s", files[selected]);
+          else
+            snprintf(newpath, sizeof(newpath), "%s/%s", cwd, files[selected]);
+
+          strncpy(cwd, newpath, sizeof(cwd));
+          load_dir(cwd);
         }
-        else if (strcmp(files[selected], ".") != 0) {
-            if (strcmp(cwd, "/") == 0)
-                snprintf(newpath, sizeof(newpath), "/%s", files[selected]);
-            else
-                snprintf(newpath, sizeof(newpath), "%s/%s", cwd, files[selected]);
-
-            strncpy(cwd, newpath, sizeof(cwd));
-        }
-
-        load_dir(cwd);
+      } else {
+        open_file(files[selected], cwd);
+      }
     }
-    else {
-        // open file
-      
-    }
-}
+  }
 
-
+  // Move endwin() after loop
   endwin();
   return 0;
-}}
+}
